@@ -1,0 +1,38 @@
+FROM centos:7.6.1810
+
+ARG VERSION=4.6
+ARG user=jenkins
+ARG group=jenkins
+ARG uid=1000
+ARG gid=1000
+
+
+
+RUN groupadd -g ${gid} ${group}
+RUN useradd -c "Jenkins user" -d /home/${user} -u ${uid} -g ${gid} -m ${user}
+LABEL Description="This is a base image, which provides the Jenkins agent executable (agent.jar)" Vendor="Jenkins project" Version="${VERSION}"
+
+ARG AGENT_WORKDIR=/home/${user}/agent
+
+COPY CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN mkdir -p /usr/share/jenkins \
+    && yum install -y java-1.8.0-openjdk git python-setuptools numpy scipy pexpect ansible python2-pip zip 
+RUN pip install Xlsxwriter \
+    && pip install pymysql==0.10.1
+RUN yum install -y kde-l10n-Chinese glibc-common \
+    && localedef -c -f UTF-8 -i zh_CN zh_CN.utf8
+
+ENV LC_ALL=zh_CN.UTF-8
+
+RUN curl --create-dirs -fsSLo /usr/share/jenkins/agent.jar https://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/${VERSION}/remoting-${VERSION}.jar \
+  && chmod 755 /usr/share/jenkins \
+  && chmod 644 /usr/share/jenkins/agent.jar \
+  && ln -sf /usr/share/jenkins/agent.jar /usr/share/jenkins/slave.jar
+
+USER ${user}
+ENV AGENT_WORKDIR=${AGENT_WORKDIR}
+RUN mkdir /home/${user}/.jenkins && mkdir -p ${AGENT_WORKDIR}
+
+VOLUME /home/${user}/.jenkins
+VOLUME ${AGENT_WORKDIR}
+WORKDIR /home/${user}
